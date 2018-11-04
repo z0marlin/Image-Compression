@@ -32,7 +32,7 @@ class QuadTree:
         if b.left > b.right or b.top > b.bottom or index >= self.size :
             return 0
         if (b.left == b.right and b.top == b.bottom) :
-            self._list[index]=pixel_array[b.left,b.right]
+            self._list[index]=pixel_array[b.left,b.top]
             return self._list[index]
 
         mid_v=(b.right+b.left)//2
@@ -56,3 +56,7 @@ class QuadTree:
 
     def printTree(self) :
         print(self._list)
+
+# qt = QuadTree()
+# qt.BuildTree(np.zeros((2,2),dtype='int64'))
+# qt.printTree()
