@@ -1,5 +1,7 @@
 import numpy as np
 
+DEVIATION_THRESHOLD = 1
+
 class bounds :
     def __init__(self,b):
         self._b=b
@@ -20,11 +22,14 @@ class bounds :
     def bottom(self):
         return self._b[3]
 
+    @staticmethod
+    def checkBounds(b):
+        return b.left <= b.right and b.top <= b.bottom
+        
+
     def __str__(self):
         return str(self._b)
         
-
-VARIANCE_THRESHOLD = 4000
 class QuadTree:
 
     def __init__(self):
@@ -33,7 +38,7 @@ class QuadTree:
     
     def _BuildTreeUtil(self, pixel_matrix, index, b):
         # print(b,index)
-        if b.left > b.right or b.top > b.bottom :
+        if not bounds.checkBounds(b) : 
             return 0
         if (b.left == b.right and b.top == b.bottom) :
             self._list[index]=pixel_matrix[b.left,b.top]
@@ -50,7 +55,7 @@ class QuadTree:
         return self._list[index]
 
     def _RenderTreeUtil(self, pixel_matrix, index, b) :
-        if b.left > b.right or b.top > b.bottom :
+        if not bounds.checkBounds(b) :
             return
         if b.left==b.right and b.top==b.bottom :
             pixel_matrix[b.left, b.top] = self._list[index]
@@ -65,6 +70,101 @@ class QuadTree:
         self._RenderTreeUtil(pixel_matrix, 4*index+2, quad_top_right)
         self._RenderTreeUtil(pixel_matrix, 4*index+3, quad_bottom_left)
         self._RenderTreeUtil(pixel_matrix, 4*index+4, quad_bottom_right)
+
+    def _FillDescendats(self, index, quadrant, value) :
+        if not bounds.checkBounds(quadrant) :
+            return
+        if quadrant.left == quadrant.right and quadrant.top == quadrant.bottom :
+            self._list[index] = value
+            return
+
+        # print('--',quadrant,index,'--')
+
+        vertical_middle = (quadrant.left + quadrant.right) // 2
+        horizontal_middle = (quadrant.top + quadrant.bottom) // 2
+        quad_top_left = bounds((quadrant.left, vertical_middle, quadrant.top, horizontal_middle))
+        quad_top_right = bounds((vertical_middle+1, quadrant.right, quadrant.top, horizontal_middle))
+        quad_bottom_left = bounds((quadrant.left, vertical_middle, horizontal_middle+1, quadrant.bottom))
+        quad_bottom_right = bounds((vertical_middle+1, quadrant.right, horizontal_middle+1, quadrant.bottom))
+        self._list[index] = value
+        self._FillDescendats(4*index+1, quad_top_left, value)
+        self._FillDescendats(4*index+2, quad_top_right, value)
+        self._FillDescendats(4*index+3, quad_bottom_left, value)
+        self._FillDescendats(4*index+4, quad_bottom_right, value)
+
+
+    def _GetDeviation(self, index, quadrant) :
+        if not bounds.checkBounds(quadrant) :
+            return 0
+
+        if quadrant.left==quadrant.right and quadrant.top==quadrant.bottom :
+            return 0
+
+        vertical_middle = (quadrant.left + quadrant.right) // 2
+        horizontal_middle = (quadrant.top + quadrant.bottom) // 2
+        deviation = 0
+        quad_top_left = bounds((quadrant.left, vertical_middle, quadrant.top, horizontal_middle))
+        quad_top_right = bounds((vertical_middle+1, quadrant.right, quadrant.top, horizontal_middle))
+        quad_bottom_left = bounds((quadrant.left, vertical_middle, horizontal_middle+1, quadrant.bottom))
+        quad_bottom_right = bounds((vertical_middle+1, quadrant.right, horizontal_middle+1, quadrant.bottom))
+        print ('--',quadrant,index,self._list[index],'--',quad_top_left)
+        if bounds.checkBounds(quad_top_left) :
+            deviation += (self._list[index] - self._list[4*index+1])**2
+        if bounds.checkBounds(quad_top_right) :
+            deviation += (self._list[index] - self._list[4*index+2])**2
+        if bounds.checkBounds(quad_bottom_left) :
+            deviation += (self._list[index] - self._list[4*index+3])**2
+        if bounds.checkBounds(quad_bottom_right) :
+            deviation += (self._list[index] - self._list[4*index+4])**2
+        deviation /= 4 
+        deviation **= 0.5
+        return deviation/self._list[index] if self._list[index]!=0 else 0.0
+        
+ 
+
+    def _compressTreeUtil(self, index, quadrant):
+        if not bounds.checkBounds(quadrant) :
+            return
+        
+        if quadrant.left==quadrant.right and quadrant.top==quadrant.bottom :
+            return
+
+        devation = self._GetDeviation
+        vertical_middle = (quadrant.left + quadrant.right) // 2
+        horizontal_middle = (quadrant.top + quadrant.bottom) // 2
+
+        quad_top_left = bounds((quadrant.left, vertical_middle, quadrant.top, horizontal_middle))
+        quad_top_right = bounds((vertical_middle+1, quadrant.right, quadrant.top, horizontal_middle))
+        quad_bottom_left = bounds((quadrant.left, vertical_middle, horizontal_middle+1, quadrant.bottom))
+        quad_bottom_right = bounds((vertical_middle+1, quadrant.right, horizontal_middle+1, quadrant.bottom))
+        
+        quadrant_tl_deviation = devation(4*index+1,quad_top_left)
+        quadrant_tr_deviation = devation(4*index+2,quad_top_right)
+        quadrant_bl_deviation = devation(4*index+3,quad_bottom_left)
+        quadrant_br_deviation = devation(4*index+4,quad_bottom_right)
+
+        # max_deviation = max(quadrant_tl_deviation, quadrant_tr_deviation, quadrant_bl_deviation, quadrant_br_deviation)
+
+        if quadrant_tl_deviation <= DEVIATION_THRESHOLD and bounds.checkBounds(quad_top_left):
+            self._FillDescendats(4*index+1, quad_top_left, self._list[4*index+1])
+        else:
+            self._compressTreeUtil(4*index+1,quad_top_left)
+        
+        if quadrant_tr_deviation <= DEVIATION_THRESHOLD and bounds.checkBounds(quad_top_right):
+            self._FillDescendats(4*index+2, quad_top_right, self._list[4*index+2])
+        else:
+            self._compressTreeUtil(4*index+2,quad_top_right)
+
+        if quadrant_bl_deviation <= DEVIATION_THRESHOLD and bounds.checkBounds(quad_bottom_left):
+            self._FillDescendats(4*index+3, quad_bottom_left, self._list[4*index+3])
+        else:
+            self._compressTreeUtil(4*index+3,quad_bottom_left)
+
+        if quadrant_br_deviation <= DEVIATION_THRESHOLD and bounds.checkBounds(quad_bottom_right):
+            self._FillDescendats(4*index+4, quad_bottom_right, self._list[4*index+4])
+        else:
+            self._compressTreeUtil(4*index+4,quad_bottom_right)
+    
         
 
     def BuildTree(self, pixel_matrix) :
@@ -79,64 +179,10 @@ class QuadTree:
         b = bounds((0, c-1, 0, r-1))
         self._RenderTreeUtil(pixel_matrix, 0, b)
         return pixel_matrix
-
-    def _compressTreeUtil(self, index, b, value=None):
-        if 4*index+4>self.length:
-            return
-
-        if b.left > b.right or b.top > b.bottom:
-            return 0
-        if (b.left == b.right and b.top == b.bottom) :
-            if value is not None:
-                self._list[index] = value
-
-        mean = self._list[index]
-        mid_v=(b.right+b.left)//2
-        mid_h=(b.bottom+b.top)//2
-
-        if value is not None:
-            self._list[index] = value
-            self._compressTreeUtil(4*index+1,bounds((b.left, mid_v, b.top, mid_h)), value)
-            self._compressTreeUtil(4*index+2,bounds((mid_v+1, b.right, b.top, mid_h)), value)
-            self._compressTreeUtil(4*index+3,bounds((b.left, mid_v, mid_h+1, b.right)), value)
-            self._compressTreeUtil(4*index+4,bounds((mid_v+1, b.right, mid_h+1, b.bottom)), value)
-        else:
-            quadrant2 = self.GetDeviation(4*index+1)
-            quadrant1 = self.GetDeviation(4*index+2)
-            quadrant3 = self.GetDeviation(4*index+3)
-            quadrant4 = self.GetDeviation(4*index+4)
-
-            maximum = max(quadrant1,quadrant2,quadrant3,quadrant4)
-
-            if quadrant2 != maximum:
-                self._compressTreeUtil(4*index+1,bounds((b.left, mid_v, b.top, mid_h)), self._list[4*index+1])
-            else:
-                self._compressTreeUtil(4*index+1,bounds((b.left, mid_v, b.top, mid_h)), None)
-            if quadrant1 != maximum:
-                self._compressTreeUtil(4*index+2,bounds((mid_v+1, b.right, b.top, mid_h)), self._list[4*index+2])
-            else:
-                self._compressTreeUtil(4*index+2,bounds((mid_v+1, b.right, b.top, mid_h)), None)
-            if quadrant3 != maximum:
-                self._compressTreeUtil(4*index+3,bounds((b.left, mid_v, mid_h+1, b.right)), self._list[4*index+3])
-            else:
-                self._compressTreeUtil(4*index+3,bounds((b.left, mid_v, mid_h+1, b.right)), None)
-            if quadrant4 != maximum:
-                self._compressTreeUtil(4*index+4,bounds((mid_v+1, b.right, mid_h+1, b.bottom)), self._list[4*index+4])
-            else:
-                self._compressTreeUtil(4*index+4,bounds((mid_v+1, b.right, mid_h+1, b.bottom)), None)
-        
-
-    def GetDeviation(self, index):
-        children = [4*index+1,4*index+2,4*index+3,4*index+4]
-        deviation = 0
-        mean = self._list[index]
-        for child in children:
-            if child<self.length and self._list[child]:
-                deviation += abs(mean - self._list[child])
-        return deviation
-                
-    def compressTree(self,r ,c) :
-        self._compressTreeUtil(0, bounds((0, c-1, 0, r-1)),None)
+                   
+    def compressTree(self) :
+        c,r = self.image_size
+        self._compressTreeUtil(0, bounds((0, c-1, 0, r-1)))
     
     
     @property
@@ -150,8 +196,8 @@ class QuadTree:
     def printTree(self) :
         print(self._list)
 
-qt = QuadTree()
-qt.BuildTree(np.zeros((2,2),dtype='uint16'))
-qt.printTree()
-matrix = qt.RenderTree()
-print(matrix)
+# qt = QuadTree()
+# qt.BuildTree(np.zeros((2,2),dtype='uint16'))
+# qt.printTree()
+# matrix = qt.RenderTree()
+# print(matrix)
