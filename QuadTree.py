@@ -31,7 +31,7 @@ class QuadTree:
     
     def _BuildTreeUtil(self, pixel_matrix, index, b):
         # print(b,index)
-        if b.left > b.right or b.top > b.bottom or index >= self.length :
+        if b.left > b.right or b.top > b.bottom :
             return 0
         if (b.left == b.right and b.top == b.bottom) :
             self._list[index]=pixel_matrix[b.left,b.top]
@@ -48,7 +48,7 @@ class QuadTree:
         return self._list[index]
 
     def _RenderTreeUtil(self, pixel_matrix, index, b) :
-        if b.left > b.right or b.top > b.bottom or index >= self.length :
+        if b.left > b.right or b.top > b.bottom :
             return
         if b.left==b.right and b.top==b.bottom :
             pixel_matrix[b.left, b.top] = self._list[index]
@@ -67,13 +67,13 @@ class QuadTree:
 
     def BuildTree(self, pixel_matrix) :
         r,c = self._image_size = pixel_matrix.shape
-        self._list = [None for i in range(2*r*c)]
+        self._list = [None for i in range(4*r*c)]
         self._BuildTreeUtil(pixel_matrix, 0, bounds((0, c-1, 0, r-1)))
 
     def RenderTree(self) :
         image_size = self.image_size
         r,c = image_size[1], image_size[0]
-        pixel_matrix = np.empty(image_size, dtype='int32')
+        pixel_matrix = np.empty(image_size, dtype='uint16')
         b = bounds((0, c-1, 0, r-1))
         self._RenderTreeUtil(pixel_matrix, 0, b)
         return pixel_matrix
@@ -89,8 +89,8 @@ class QuadTree:
     def printTree(self) :
         print(self._list)
 
-# qt = QuadTree()
-# qt.BuildTree(np.zeros((2,2),dtype='int64'))
-# qt.printTree()
-# matrix = qt.RenderTree()
-# print(matrix)
+qt = QuadTree()
+qt.BuildTree(np.zeros((2,2),dtype='uint16'))
+qt.printTree()
+matrix = qt.RenderTree()
+print(matrix)
