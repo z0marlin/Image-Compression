@@ -1,36 +1,32 @@
 from PIL import Image
+from QuadTree import QuadTree
 import random
 import numpy as np
-from QuadTree import QuadTree
-
-# def ApplyF(pixel_values, t_r, b_r, l_c, r_c, count):
-#     if count == 0:
-#         return
-#     else:
-#         W = r_c - l_c
-#         H = b_r - t_r
-#         ApplyF(pixel_values, t_r, b_r // 2, r_c, l_c // 2, count-1)
-#         ApplyF(pixel_values, t_r, b_r // 2, r_c+W//2, l_c, count-1)
-#         ApplyF(pixel_values, t_r+H//2, b_r, r_c, l_c // 2, count-1)
-#         ApplyF(pixel_values, t_r+H//2, b_r // 2, r_c+W//2, l_c, count-1)
-        
-#         pixel_values[t_r:b_r, l_c:r_c] *= random.randint(4,6)
-
+import sys
+import time
+import datetime
 
 def main():
-    img = Image.open('temp/scene.jpg', 'r').convert('L')
-    img.convert('L').save('temp/.temp', 'PNG')
-    img = Image.open('temp/.temp', 'r').convert('L')
-    pixel_values = np.array(img, dtype = 'uint16')
-
-    Q = QuadTree()
-    Q.BuildTree(pixel_values)
-    # Q.printTree()
-    Q.compressTree()   
-    pixel_values_output = Q.RenderTree()
-    # Q.printTree()
-    output = Image.fromarray(pixel_values_output)
-    output.convert('L').save('temp/output', 'PNG')
+    for image in sys.argv[1:]:
+        print("********************************************")
+        print("Image : " + image)
+        img = Image.open(image, 'r').convert('L')
+        img.convert('L').save(image + 'Temp', 'PNG')
+        img = Image.open(image + 'Temp', 'r').convert('L')
+        pixel_values = np.array(img, dtype = 'uint16')
+        Q = QuadTree()
+        Q.deviation_threshold = float(input("Enter threshold : "))
+        start = time.time()
+        print("Started processing",image,'at',datetime.datetime.now())
+        Q.BuildTree(pixel_values)
+        Q.compressTree()   
+        pixel_values_output = Q.RenderTree()
+        output = Image.fromarray(pixel_values_output)
+        output.convert('L').save(image + 'Output', 'PNG')
+        end = time.time()
+        print('Finished processing',image,'at',datetime.datetime.now())
+        print('Time difference',end-start)
+        print('Output image : ',image + 'Output')
 
 if __name__ == '__main__':
     main()
