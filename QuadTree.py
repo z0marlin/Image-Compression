@@ -1,6 +1,6 @@
 import numpy as np
 
-DEVIATION_THRESHOLD = 0.04
+DEVIATION_THRESHOLD = 0.07
 
 class bounds :
     def __init__(self,b):
@@ -71,7 +71,7 @@ class QuadTree:
         self._RenderTreeUtil(pixel_matrix, 4*index+3, quad_bottom_left)
         self._RenderTreeUtil(pixel_matrix, 4*index+4, quad_bottom_right)
 
-    def _FillDescendats(self, index, quadrant, value) :
+    def _FillDescendants(self, index, quadrant, value) :
         if not bounds.checkBounds(quadrant) :
             return
         if quadrant.left == quadrant.right and quadrant.top == quadrant.bottom :
@@ -86,14 +86,16 @@ class QuadTree:
         quad_top_right = bounds((vertical_middle+1, quadrant.right, quadrant.top, horizontal_middle))
         quad_bottom_left = bounds((quadrant.left, vertical_middle, horizontal_middle+1, quadrant.bottom))
         quad_bottom_right = bounds((vertical_middle+1, quadrant.right, horizontal_middle+1, quadrant.bottom))
-        self._list[index] = (value,False)
-        self._FillDescendats(4*index+1, quad_top_left, value)
-        self._FillDescendats(4*index+2, quad_top_right, value)
-        self._FillDescendats(4*index+3, quad_bottom_left, value)
-        self._FillDescendats(4*index+4, quad_bottom_right, value)
+        self._list[index] = (value,True)
+        self._FillDescendants(4*index+1, quad_top_left, value)
+        self._FillDescendants(4*index+2, quad_top_right, value)
+        self._FillDescendants(4*index+3, quad_bottom_left, value)
+        self._FillDescendants(4*index+4, quad_bottom_right, value)
 
 
     def _GetDeviation(self,a,b,c,d,avg) :
+        if avg == 0: #all black
+            return 0 
         square_sum = (avg-a)**2 + (avg-b)**2 + (avg-c)**2 + (avg-d)**2
         rms = (square_sum/4)**0.5
         return rms/avg
@@ -105,7 +107,7 @@ class QuadTree:
         if quadrant.left==quadrant.right and quadrant.top==quadrant.bottom :
             return self._list[index][0]
 
-        deviation = self._GetDeviation
+
         vertical_middle = (quadrant.left + quadrant.right) // 2
         horizontal_middle = (quadrant.top + quadrant.bottom) // 2
         quad_top_left = bounds((quadrant.left, vertical_middle, quadrant.top, horizontal_middle))
@@ -117,11 +119,10 @@ class QuadTree:
         qt_bl = self._PruneTree(4*index+3, quad_bottom_left)
         qt_br = self._PruneTree(4*index+4, quad_bottom_right)
         value = (qt_tl+qt_tr+qt_bl+qt_br)/4
-        homogenous = self._list[4*index+1] and self._list[4*index+2] and self._list[4*index+3] and self._list[4*index+4]
+        homogenous = self._list[4*index+1][1] and self._list[4*index+2][1] and self._list[4*index+3][1] and self._list[4*index+4][1]
         #print('--',qt_tl, qt_tr, qt_bl, qt_br,'--')
-        if deviation(qt_tl, qt_tr, qt_bl, qt_br, value) <= DEVIATION_THRESHOLD and homogenous:
-            print('Voila!')
-            self._FillDescendats(index, quadrant, int(value))
+        if self._GetDeviation(qt_tl, qt_tr, qt_bl, qt_br, value) <= DEVIATION_THRESHOLD and homogenous:
+            self._FillDescendants(index, quadrant, int(value))
             self._list[index] = (int(value),True)
 
         return self._list[index][0]
