@@ -18,14 +18,17 @@ from QuadTree import QuadTree
 
 
 def main():
-    img = Image.open('temp/pipes.png', 'r').convert('L')
+    img = Image.open('temp/lena.jpg', 'r').convert('L')
+    img.convert('L').save('temp/.temp', 'PNG')
+    img = Image.open('temp/.temp', 'r').convert('L')
     pixel_values = np.array(img, dtype = 'uint16')
 
     Q = QuadTree()
     Q.BuildTree(pixel_values)
+    # Q.printTree()
     Q.compressTree()   
-
     pixel_values_output = Q.RenderTree()
+    # Q.printTree()
     output = Image.fromarray(pixel_values_output)
     output.convert('L').save('temp/output', 'PNG')
 
